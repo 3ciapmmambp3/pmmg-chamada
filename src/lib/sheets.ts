@@ -343,17 +343,60 @@ export async function getChamadas(filters?: {
 
 export async function saveChamada(rows: Chamada[]): Promise<void> {
   const sheets = await getSheetsClient()
-  const values = rows.map((r) => [
-    r.data, r.assunto, r.grupamento, r.pelotao,
-    r.militar, r.posto, r.nome_guerra,
-    r.status, r.justificativa || '', r.responsavel, r.observacao || '',
-  ])
-  await sheets.spreadsheets.values.append({
+
+  // Busca lançamentos já existentes para esta data + assunto
+  const data    = rows[0]?.data    || ''
+  const assunto = rows[0]?.assunto || ''
+
+  const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: 'DADOS!A:K',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values },
   })
+  const existingRows = existing.data.values || []
+
+  // Monta mapa: "data|assunto|militar" → índice real da linha (1-based, linha 1 = cabeçalho)
+  const rowMap: Record<string, number> = {}
+  existingRows.forEach((row, idx) => {
+    if (idx === 0) return // pula cabeçalho se houver
+    const key = `${(row[0]||'').trim()}|${(row[1]||'').trim()}|${(row[4]||'').trim()}`
+    rowMap[key] = idx + 1 // linha real na planilha (1-based)
+  })
+
+  const toInsert: any[][] = []
+
+  for (const r of rows) {
+    const key = `${r.data}|${r.assunto}|${r.militar}`
+    const existingRowIdx = rowMap[key]
+
+    const rowValues = [
+      r.data, r.assunto, r.grupamento, r.pelotao,
+      r.militar, r.posto, r.nome_guerra,
+      r.status, r.justificativa || '', r.responsavel, r.observacao || '',
+    ]
+
+    if (existingRowIdx) {
+      // Atualiza linha existente
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `DADOS!A${existingRowIdx}:K${existingRowIdx}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [rowValues] },
+      })
+    } else {
+      // Novo lançamento
+      toInsert.push(rowValues)
+    }
+  }
+
+  // Insere novos de uma vez
+  if (toInsert.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'DADOS!A:K',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: toInsert },
+    })
+  }
 }
 
 // ============================================================

@@ -14,6 +14,7 @@ interface MilitarForm {
   status: 'presente' | 'ausente'
   justificativa: string
   observacao: string
+  jaLancado: boolean
 }
 
 // "1 GP / 4 PEL / 3 CIA PM MAMB / TEOFILO OTONI" → "1 GP · TEOFILO OTONI"
@@ -58,17 +59,28 @@ export default function ChamadaPage() {
     setTodosMilitares(milData)
     setResponsavel(user?.name || '')
 
-    // Grupamentos vêm da aba LOTACOES (ordem e conteúdo exato da planilha)
     const gps = Array.isArray(lotData) ? lotData.filter(Boolean) : []
     setAllGrupamentos(gps)
 
-    // Usuário operacional vê só o próprio grupamento
     const gpInicial = user?.perfil === 'admin'
       ? (gps[0] || '')
       : (user?.grupamento || gps[0] || '')
     setGrupamentoSel(gpInicial)
-    carregarMilitares(milData, gpInicial)
+    await carregarMilitares(milData, gpInicial, instrData)
     setLoading(false)
+  }
+
+  // Busca chamadas já lançadas para pré-preencher status
+  async function getChamadasExistentes(data: string, gp: string): Promise<Record<string, any>> {
+    if (!data) return {}
+    try {
+      const res = await fetch(`/api/chamada?data=${encodeURIComponent(data)}&grupamento=${encodeURIComponent(gp)}`)
+      if (!res.ok) return {}
+      const chamadas: any[] = await res.json()
+      const map: Record<string, any> = {}
+      chamadas.forEach(c => { map[c.militar] = c })
+      return map
+    } catch { return {} }
   }
 
   // Verifica se o militar pertence ao grupamento selecionado.
@@ -88,28 +100,36 @@ export default function ChamadaPage() {
     return semGP(lotacao) === semGP(gp)
   }
 
-  function carregarMilitares(milData: any[], gp: string) {
+  async function carregarMilitares(milData: any[], gp: string, instrData?: any) {
+    const instr = instrData || instrucao
+    // Busca lançamentos já existentes para pré-preencher
+    const existentes = instr?.data ? await getChamadasExistentes(instr.data, gp) : {}
+
     const lista = milData
       .filter((m: any) => m.ativo && militarPertenceAoGrupamento(m.lotacao, gp))
       .sort((a: any, b: any) => a.nome_guerra.localeCompare(b.nome_guerra))
-      .map((m: any) => ({
-        login:        m.login,
-        posto:        m.posto,
-        nome:         m.nome,
-        nome_guerra:  m.nome_guerra,
-        lotacao:      m.lotacao,
-        grupamento:   m.grupamento,
-        pelotao:      m.pelotao,
-        status:       'presente' as const,
-        justificativa: '',
-        observacao:   '',
-      }))
+      .map((m: any) => {
+        const jaLancado = existentes[m.login]
+        return {
+          login:        m.login,
+          posto:        m.posto,
+          nome:         m.nome,
+          nome_guerra:  m.nome_guerra,
+          lotacao:      m.lotacao,
+          grupamento:   m.grupamento,
+          pelotao:      m.pelotao,
+          status:       jaLancado ? jaLancado.status : 'presente' as const,
+          justificativa: jaLancado ? (jaLancado.justificativa || '') : '',
+          observacao:   jaLancado ? (jaLancado.observacao || '') : '',
+          jaLancado:    !!jaLancado,  // flag para mostrar na UI
+        }
+      })
     setMilitares(lista)
   }
 
-  function handleGrupamentoChange(gp: string) {
+  async function handleGrupamentoChange(gp: string) {
     setGrupamentoSel(gp)
-    carregarMilitares(todosMilitares, gp)
+    await carregarMilitares(todosMilitares, gp)
     setSaved(false)
     setErro('')
   }
@@ -254,7 +274,21 @@ export default function ChamadaPage() {
                 <td style={{ color: '#555', fontSize: '11px' }}>{i + 1}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: '11px', color: '#888' }}>{m.login}</td>
                 <td style={{ fontSize: '11px', color: '#888' }}>{m.posto}</td>
-                <td style={{ fontWeight: '600', color: '#f0f0f0' }}>{m.nome_guerra}</td>
+                <td style={{ fontWeight: '600', color: '#f0f0f0' }}>
+                  {m.nome_guerra}
+                  {m.jaLancado && (
+                    <span style={{
+                      marginLeft: '6px', fontSize: '9px', fontWeight: '700',
+                      background: 'rgba(66,165,245,0.15)', color: '#42a5f5',
+                      border: '1px solid rgba(66,165,245,0.3)',
+                      padding: '1px 6px', borderRadius: '3px',
+                      textTransform: 'uppercase', letterSpacing: '0.4px',
+                      verticalAlign: 'middle',
+                    }}>
+                      Editando
+                    </span>
+                  )}
+                </td>
                 <td style={{ fontSize: '11px', color: '#888' }}>{m.pelotao}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '6px' }}>
@@ -315,8 +349,12 @@ export default function ChamadaPage() {
         )}
         <button onClick={handleSalvar} disabled={saving || !militares.length} className="btn-gold"
           style={{ padding: '9px 20px', fontSize: '13px', opacity: saving || !militares.length ? 0.5 : 1 }}>
-          {saving ? <><RefreshCw size={14} style={{ animation: 'spin 0.8s linear infinite' }}/> Salvando...</>
-                  : <><Save size={14}/> Salvar Chamada</>}
+          {saving
+          ? <><RefreshCw size={14} style={{ animation: 'spin 0.8s linear infinite' }}/> Salvando...</>
+          : militares.some(m => m.jaLancado)
+            ? <><Save size={14}/> Salvar / Atualizar Chamada</>
+            : <><Save size={14}/> Salvar Chamada</>
+        }
         </button>
       </div>
 
