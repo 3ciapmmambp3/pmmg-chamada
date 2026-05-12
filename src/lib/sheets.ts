@@ -13,37 +13,75 @@ const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!
 
 // ============================================================
 // PARSER DE LOTAÇÃO
-// Formato: "1 GP / 4 PEL / 3 CIA PM MAMB / TEOFILO OTONI"
-// O GRUPAMENTO = lotação COMPLETA (sem repetir militares de cidades diferentes)
-// O PELOTÃO    = segunda parte (ex: "4 PEL")
-// ADM          = "ADM" (sem barras)
+//
+// CASO 1 — Operacional (com GP):
+//   "1 GP / 1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES"
+//   grupamento = lotação completa
+//   pelotao    = "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES"
+//               (tudo a partir da parte que contém PEL)
+//
+// CASO 2 — Cmt Pelotão (sem GP, começa direto no PEL):
+//   "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES"
+//   grupamento = lotação completa
+//   pelotao    = "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES" (igual)
+//
+// CASO 3 — ADM (sem barra):
+//   "ADM"
+//   grupamento = "ADM", pelotao = "ADM"
+//
+// REGRA DO PELOTÃO:
+//   Encontra a primeira parte que termina em "PEL" ou "PEL QPF" etc.
+//   e usa "N PEL / CIA / CIDADE" como chave de pelotão.
+//   Assim Cmt e Operacionais do mesmo pelotão ficam agrupados.
 // ============================================================
 function parseLotacao(lotacao: string): { grupamento: string; pelotao: string } {
   if (!lotacao) return { grupamento: '', pelotao: '' }
   const lotacaoTrim = lotacao.trim()
 
-  // ADM (sem barra) → pelotao = ADM
+  // Sem barra → ADM ou similar
   if (!lotacaoTrim.includes('/')) {
-    return { grupamento: lotacaoTrim, pelotao: 'ADM' }
+    return { grupamento: lotacaoTrim, pelotao: lotacaoTrim }
   }
 
-  const partes = lotacaoTrim.split('/').map((p) => p.trim())
+  const partes = lotacaoTrim.split('/').map(p => p.trim())
 
-  // Estrutura 3ª CIA PM MAMB:
-  // "1 PEL / 3 CIA PM MAMB / CIDADE"           → partes[0]="1 PEL"
-  // "1 GP / 1 PEL / 3 CIA PM MAMB / CIDADE"    → partes[1]="1 PEL"
-  // Busca qualquer parte que termine com "PEL" (ex: "1 PEL", "2 PEL")
-  const pelParte = partes.find((p) => /^\d+\s+PEL$/i.test(p))
+  // Encontra o índice da parte que contém "PEL" (ex: "1 PEL", "2 PEL QPF")
+  const idxPel = partes.findIndex(p => /\bPEL\b/i.test(p))
+
+  let pelotao: string
+  if (idxPel >= 0) {
+    // Pelotão = "N PEL / CIA / CIDADE" (a partir da parte PEL)
+    pelotao = partes.slice(idxPel).join(' / ')
+  } else {
+    // Sem PEL identificado → usa tudo
+    pelotao = lotacaoTrim
+  }
 
   return {
-    grupamento: lotacaoTrim,
-    pelotao: pelParte || 'ADM',
+    grupamento: lotacaoTrim,  // chave única por grupamento completo
+    pelotao,                  // chave de agrupamento por pelotão (sem o GP)
   }
 }
 
-// Exibe a lotação completa como está (ex: "1 GP / 4 PEL / 3 CIA PM MAMB / TEOFILO OTONI")
+// Rótulo curto para exibir no dropdown
+// "1 GP / 1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES" → "1 GP · GOVERNADOR VALADARES"
+// "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES"         → "Cmt · GOVERNADOR VALADARES"
 export function labelGrupamento(lotacao: string): string {
-  return (lotacao || '').trim()
+  if (!lotacao) return ''
+  if (!lotacao.includes('/')) return lotacao
+  const partes = lotacao.split('/').map(p => p.trim())
+  const primeiro = partes[0]   // "1 GP" ou "1 PEL"
+  const cidade   = partes[partes.length - 1]  // última parte = cidade
+
+  // Se a primeira parte é um GP → "1 GP · CIDADE"
+  if (/\bGP\b/i.test(primeiro)) {
+    return `${primeiro} · ${cidade}`
+  }
+  // Se começa direto no PEL (Cmt Pelotão) → "Cmt 1 PEL · CIDADE"
+  if (/\bPEL\b/i.test(primeiro)) {
+    return `Cmt ${primeiro} · ${cidade}`
+  }
+  return primeiro === cidade ? primeiro : `${primeiro} · ${cidade}`
 }
 
 // ============================================================
@@ -51,7 +89,7 @@ export function labelGrupamento(lotacao: string): string {
 // A: Nº PM | B: P/G | C: NOME COMPLETO | D: NOME DE GUERRA
 // E: FUNÇÃO | F: LOTAÇÃO | G: PERFIL | H: SENHA | I: TROCAR_SENHA | J: ATIVO
 // ============================================================
-const MILITARES_START_ROW = parseInt(process.env.MILITARES_START_ROW || '3', 10)
+const MILITARES_START_ROW = parseInt(process.env.MILITARES_START_ROW || '8', 10)
 
 export async function getMilitares(): Promise<Militar[]> {
   const sheets = await getSheetsClient()
@@ -81,7 +119,7 @@ export async function getMilitares(): Promise<Militar[]> {
         rowIndex: idx + MILITARES_START_ROW,
       } as Militar
     })
-    .filter((m) => m.login !== '' && /^[0-9]/.test(m.login))
+    .filter((m) => m.login !== '')
 }
 
 // Remove formatação do Nº PM para comparação
@@ -149,67 +187,104 @@ export async function updateMilitar(login: string, upd: Partial<Militar>): Promi
 }
 
 // ============================================================
-// CONFIG — aba CONFIG
-// Linha 1: cabeçalho (ASSUNTO | DATA)
-// Linhas 2+: histórico de instruções — a ÚLTIMA linha é a ativa
+// CONFIG — aba CONFIG (histórico de instruções)
+// Linha 1: cabeçalhos (ASSUNTO | DATA | ATIVA)
+// Linha 2+: cada instrução. A ativa tem "SIM" na coluna C
+//           ou se nenhuma tiver, usa a última linha.
 // ============================================================
-
-export interface InstrucaoConfigEntry extends InstrucaoConfig {
-  rowIndex: number   // linha real na planilha (1-based)
+export interface InstrucaoHistorico {
+  assunto: string
+  data: string
+  ativa: boolean
+  rowIndex: number
 }
 
-// Retorna TODAS as instruções do histórico (sem cabeçalho), mais recente por último
-export async function getAllInstrucaoConfigs(): Promise<InstrucaoConfigEntry[]> {
+export async function getTodasInstrucoes(): Promise<InstrucaoHistorico[]> {
   const sheets = await getSheetsClient()
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'CONFIG!A2:B',
+    range: 'CONFIG!A2:C',
   })
   const rows = res.data.values || []
   return rows
     .map((row, idx) => ({
       assunto:  (row[0] || '').toString().trim(),
       data:     (row[1] || '').toString().trim(),
+      ativa:    row[2] === 'SIM' || row[2] === 'sim' || row[2] === 'TRUE',
       rowIndex: idx + 2,
     }))
-    .filter((r) => r.assunto || r.data)
+    .filter(r => r.assunto || r.data)
 }
 
-// Retorna a instrução ATIVA (última linha preenchida)
 export async function getInstrucaoConfig(): Promise<InstrucaoConfig> {
-  const all = await getAllInstrucaoConfigs()
-  if (all.length === 0) return { data: '', assunto: '' }
-  const last = all[all.length - 1]
-  return { data: last.data, assunto: last.assunto }
+  const todas = await getTodasInstrucoes()
+  if (!todas.length) return { data: '', assunto: '' }
+  // Prioridade: marcada como ATIVA; fallback: última linha
+  const ativa = todas.find(r => r.ativa) || todas[todas.length - 1]
+  return { data: ativa.data, assunto: ativa.assunto }
 }
 
-// Adiciona uma NOVA instrução ao histórico (append)
+// Adiciona nova instrução e a marca como ativa (desmarca as outras)
 export async function setInstrucaoConfig(config: InstrucaoConfig): Promise<void> {
   const sheets = await getSheetsClient()
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: 'CONFIG!A:B',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[config.assunto, config.data]] },
-  })
+  const todas = await getTodasInstrucoes()
+
+  // Desmarca todas as anteriores
+  if (todas.length > 0) {
+    const clearValues = todas.map(() => ['', '', ''])
+    // Só atualiza coluna C (ATIVA) das existentes
+    for (const t of todas) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `CONFIG!C${t.rowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['']] },
+      })
+    }
+  }
+
+  // Verifica se já existe a mesma instrução (mesma data + assunto)
+  const existente = todas.find(
+    t => t.data === config.data && t.assunto === config.assunto
+  )
+
+  if (existente) {
+    // Apenas marca como ativa
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `CONFIG!C${existente.rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['SIM']] },
+    })
+  } else {
+    // Adiciona nova linha e marca como ativa
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'CONFIG!A:C',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[config.assunto, config.data, 'SIM']] },
+    })
+  }
 }
 
-// Ativa uma instrução existente movendo-a para a última posição (append + opcional delete da origem)
-// Estratégia simples: apenas faz append da linha selecionada como nova linha ativa
-export async function activateInstrucaoConfig(entry: InstrucaoConfigEntry): Promise<void> {
+// Ativa uma instrução existente pelo rowIndex
+export async function ativarInstrucao(rowIndex: number): Promise<void> {
   const sheets = await getSheetsClient()
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: 'CONFIG!A:B',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[entry.assunto, entry.data]] },
-  })
+  const todas = await getTodasInstrucoes()
+  for (const t of todas) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `CONFIG!C${t.rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[t.rowIndex === rowIndex ? 'SIM' : '']] },
+    })
+  }
 }
 
 // ============================================================
 // CHAMADAS — aba DADOS
-// A: data | B: assunto | C: grupamento | D: Nº PM (militar)
-// E: posto | F: nome_guerra | G: pelotao | H: status | I: justificativa | J: responsavel | K: observacao
+// A: data | B: assunto | C: grupamento | D: pelotao | E: Nº PM
+// F: posto | G: nome_guerra | H: status | I: justificativa | J: responsavel | K: observacao
 // ============================================================
 export async function getChamadas(filters?: {
   data?: string
@@ -232,10 +307,10 @@ export async function getChamadas(filters?: {
     data:         row[0] || '',
     assunto:      row[1] || '',
     grupamento:   row[2] || '',
-    militar:      row[3] || '',
-    posto:        row[4] || '',
-    nome_guerra:  row[5] || '',
-    pelotao:      row[6] || '',
+    pelotao:      row[3] || '',
+    militar:      row[4] || '',
+    posto:        row[5] || '',
+    nome_guerra:  row[6] || '',
     status:       (row[7] || 'ausente') as 'presente' | 'ausente',
     justificativa: row[8] || '',
     responsavel:  row[9] || '',
@@ -243,23 +318,9 @@ export async function getChamadas(filters?: {
   }))
 
   if (!filters) return chamadas
-
-  // Normaliza data para comparação: aceita DD/MM/YYYY ou YYYY-MM-DD
-  function normDate(d: string): string {
-    if (!d) return ''
-    d = d.trim()
-    if (d.includes('/')) {
-      const [dd, mm, yyyy] = d.split('/')
-      return `${yyyy}-${mm}-${dd}`   // converte para ISO
-    }
-    return d  // já é ISO
-  }
-
-  const filterDataNorm = normDate(filters.data || '')
-
   return chamadas.filter((c) => {
-    if (filters.data       && normDate(c.data) !== filterDataNorm) return false
-    if (filters.grupamento && c.grupamento.trim() !== filters.grupamento.trim()) return false
+    if (filters.data       && c.data !== filters.data) return false
+    if (filters.grupamento && c.grupamento !== filters.grupamento) return false
     if (filters.assunto    && !c.assunto.toLowerCase().includes(filters.assunto.toLowerCase())) return false
     if (filters.status     && c.status !== filters.status) return false
     if (filters.responsavel && !c.responsavel.toLowerCase().includes(filters.responsavel.toLowerCase())) return false
@@ -276,8 +337,8 @@ export async function getChamadas(filters?: {
 export async function saveChamada(rows: Chamada[]): Promise<void> {
   const sheets = await getSheetsClient()
   const values = rows.map((r) => [
-    r.data, r.assunto, r.grupamento,
-    r.militar, r.posto, r.nome_guerra, r.pelotao,
+    r.data, r.assunto, r.grupamento, r.pelotao,
+    r.militar, r.posto, r.nome_guerra,
     r.status, r.justificativa || '', r.responsavel, r.observacao || '',
   ])
   await sheets.spreadsheets.values.append({
@@ -291,52 +352,15 @@ export async function saveChamada(rows: Chamada[]): Promise<void> {
 // ============================================================
 // DASHBOARD STATS
 // ============================================================
-// ============================================================
-// LOTACOES — ordem canônica de exibição de grupamentos
-// Lê a aba LOTACOES!A2:A (ignora cabeçalho na linha 1)
-// Fallback: ordenação alfabética se a aba não existir
-// ============================================================
-export async function getLotacoesOrdem(): Promise<string[]> {
-  try {
-    const sheets = await getSheetsClient()
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'LOTACOES!A2:A',
-    })
-    return (res.data.values || [])
-      .map((r) => (r[0] || '').toString().trim())
-      .filter(v => v && !v.toLowerCase().includes('lotac') && !v.toLowerCase().includes('não altere'))
-  } catch {
-    return []
-  }
-}
-
-// Ordena uma lista de lotações/grupamentos pela ordem canônica da aba LOTACOES.
-// Itens não encontrados na lista canônica vão ao final em ordem alfabética.
-export function sortByLotacao(items: string[], ordem: string[]): string[] {
-  const normalize = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ')
-  const indexMap = new Map<string, number>()
-  ordem.forEach((lot, i) => indexMap.set(normalize(lot), i))
-
-  return [...items].sort((a, b) => {
-    const ia = indexMap.get(normalize(a)) ?? Infinity
-    const ib = indexMap.get(normalize(b)) ?? Infinity
-    if (ia !== ib) return ia - ib
-    return a.localeCompare(b, 'pt-BR')
-  })
-}
-
 export async function getDashboardStats() {
   const config = await getInstrucaoConfig()
-  const [militares, chamadas, lotacoesOrdem] = await Promise.all([
+  const [militares, chamadas] = await Promise.all([
     getMilitares(),
     getChamadas({ data: config.data }),
-    getLotacoesOrdem(),
   ])
 
   const ativos = militares.filter((m) => m.ativo)
-  const grupamentosRaw = [...new Set(ativos.map((m) => m.grupamento))].filter(Boolean)
-  const grupamentos = sortByLotacao(grupamentosRaw, lotacoesOrdem)
+  const grupamentos = [...new Set(ativos.map((m) => m.grupamento))].filter(Boolean).sort()
   const grupamentosConcluidos = [...new Set(chamadas.map((c) => c.grupamento))].filter(Boolean)
   const grupamentosPendentes = grupamentos.filter((g) => !grupamentosConcluidos.includes(g))
 
@@ -344,18 +368,28 @@ export async function getDashboardStats() {
   const ausentes  = chamadas.filter((c) => c.status === 'ausente').length
   const adm       = ativos.filter((m) => m.grupamento === 'ADM').length
 
-  // Pelotões: apenas entradas com "PEL" + ADM separado, ordenados canonicamente
-  const pelotoesRaw = [...new Set(ativos.map((m) => m.pelotao))]
-    .filter((p) => p && (p === 'ADM' || /PEL/i.test(p)))
-  // Ordem fixa: ADM primeiro, depois 1 PEL .. 5 PEL
-  const pelotoes = ['ADM', '1 PEL', '2 PEL', '3 PEL', '4 PEL', '5 PEL']
-    .filter((p) => pelotoesRaw.includes(p))
+  // Pelotões únicos — agrupa por "N PEL / CIA / CIDADE"
+  // Tanto o Cmt Pelotão quanto os Operacionais têm o mesmo pelotao após o parser
+  const pelotoes = [...new Set(ativos.map((m) => m.pelotao))].filter(Boolean).sort()
+
+  // Rótulo legível: "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES" → "1 PEL · GOV. VALADARES"
+  function labelPelotao(pel: string): string {
+    if (!pel.includes('/')) return pel
+    const partes = pel.split('/').map(p => p.trim())
+    const numPel = partes[0]   // "1 PEL"
+    const cidade = partes[partes.length - 1]  // "GOVERNADOR VALADARES"
+    return `${numPel} · ${cidade}`
+  }
+
   const resumoPorPelotao = pelotoes.map((pelotao) => {
+    // Militares ativos cujo pelotao começa com esta chave
     const mils = ativos.filter((m) => m.pelotao === pelotao)
+    // Chamadas também pelo campo pelotao gravado
     const pres = chamadas.filter((c) => c.pelotao === pelotao && c.status === 'presente').length
     const aus  = chamadas.filter((c) => c.pelotao === pelotao && c.status === 'ausente').length
     return {
-      pelotao,
+      pelotao: labelPelotao(pelotao),  // rótulo curto para exibição
+      pelotaoFull: pelotao,            // chave completa para referência
       militares: mils.length,
       presentes: pres,
       ausentes:  aus,
