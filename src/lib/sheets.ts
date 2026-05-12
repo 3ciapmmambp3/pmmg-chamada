@@ -22,23 +22,21 @@ function parseLotacao(lotacao: string): { grupamento: string; pelotao: string } 
   if (!lotacao) return { grupamento: '', pelotao: '' }
   const lotacaoTrim = lotacao.trim()
 
-  // ADM sem barra
+  // ADM (sem barra) → pelotao = ADM
   if (!lotacaoTrim.includes('/')) {
     return { grupamento: lotacaoTrim, pelotao: 'ADM' }
   }
 
   const partes = lotacaoTrim.split('/').map((p) => p.trim())
 
-  // Estrutura da 3ª CIA PM MAMB:
-  // ADM
-  // X PEL / 3 CIA PM MAMB / CIDADE          → pelotao = "X PEL"
-  // X GP / X PEL / 3 CIA PM MAMB / CIDADE   → pelotao = "X PEL"
-
-  // Busca a parte que contém "PEL"
-  const pelParte = partes.find((p) => /PEL/i.test(p))
+  // Estrutura 3ª CIA PM MAMB:
+  // "1 PEL / 3 CIA PM MAMB / CIDADE"           → partes[0]="1 PEL"
+  // "1 GP / 1 PEL / 3 CIA PM MAMB / CIDADE"    → partes[1]="1 PEL"
+  // Busca qualquer parte que termine com "PEL" (ex: "1 PEL", "2 PEL")
+  const pelParte = partes.find((p) => /^\d+\s+PEL$/i.test(p))
 
   return {
-    grupamento: lotacaoTrim,   // lotação completa
+    grupamento: lotacaoTrim,
     pelotao: pelParte || 'ADM',
   }
 }
