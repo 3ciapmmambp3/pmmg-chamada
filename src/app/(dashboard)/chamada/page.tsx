@@ -52,13 +52,9 @@ export default function ChamadaPage() {
     setResponsavel(user?.name || '')
 
     // Grupamentos únicos = lotações completas únicas, ordenadas pela aba LOTACOES
-    const gpsRaw = Array.from(
-      new Set(
-        milData
-        .filter((m: any) => m.ativo)
-        .map((m: any) => m.grupamento)
-      )
-    ).filter(Boolean) as string[]
+    const gpsRaw = [...new Set(
+      milData.filter((m: any) => m.ativo).map((m: any) => m.grupamento)
+    )].filter(Boolean) as string[]
 
     let gps = [...gpsRaw].sort()
     try {
