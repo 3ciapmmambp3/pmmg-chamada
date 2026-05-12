@@ -367,8 +367,8 @@ export async function getDashboardStats() {
   ])
 
   const ativos = militares.filter((m) => m.ativo)
-  const grupamentos = [...new Set(ativos.map((m) => m.grupamento))].filter(Boolean).sort()
-  const grupamentosConcluidos = [...new Set(chamadas.map((c) => c.grupamento))].filter(Boolean)
+  const grupamentos = Array.from(new Set(ativos.map((m) => m.grupamento))).filter(Boolean).sort()
+  const grupamentosConcluidos = Array.from(new Set(chamadas.map((c) => c.grupamento))).filter(Boolean)
   const grupamentosPendentes = grupamentos.filter((g) => !grupamentosConcluidos.includes(g))
 
   const presentes = chamadas.filter((c) => c.status === 'presente').length

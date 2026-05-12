@@ -57,9 +57,8 @@ export default function ChamadaPage() {
     setResponsavel(user?.name || '')
 
     // Grupamentos únicos = lotações completas únicas, ordenadas
-    const gps = [...new Set(
-      milData.filter(m => m.ativo).map((m: any) => m.grupamento)
-    )].filter(Boolean).sort() as string[]
+    const gpsSet = new Set(milData.filter(m => m.ativo).map((m: any) => m.grupamento))
+    const gps = Array.from(gpsSet).filter(Boolean).sort() as string[]
     setAllGrupamentos(gps)
 
     // Usuário operacional vê só o próprio grupamento
