@@ -367,7 +367,20 @@ export async function getDashboardStats() {
   ])
 
   const ativos = militares.filter((m) => m.ativo)
-  const grupamentos = Array.from(new Set(ativos.map((m) => m.grupamento))).filter(Boolean).sort()
+
+  // Grupamentos na ordem da aba LOTACOES (igual ao dropdown)
+  let grupamentos: string[] = []
+  try {
+    const lotRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'LOTACOES!A2:A',
+    })
+    grupamentos = (lotRes.data.values || [])
+      .map(r => (r[0] || '').toString().trim())
+      .filter(Boolean)
+  } catch {
+    grupamentos = Array.from(new Set(ativos.map((m) => m.grupamento))).filter(Boolean).sort()
+  }
   const grupamentosConcluidos = Array.from(new Set(chamadas.map((c) => c.grupamento))).filter(Boolean)
   const grupamentosPendentes = grupamentos.filter((g) => !grupamentosConcluidos.includes(g))
 
