@@ -71,9 +71,26 @@ export default function ChamadaPage() {
     setLoading(false)
   }
 
+  // Verifica se o militar pertence ao grupamento selecionado.
+  // Um militar pertence se:
+  //   1. Sua lotação é exatamente igual ao grupamento selecionado, OU
+  //   2. Sua lotação está CONTIDA no grupamento selecionado
+  //      ex: "1 PEL / 3 CIA PM MAMB / GV" está dentro de "1 GP / 1 PEL / 3 CIA PM MAMB / GV"
+  function militarPertenceAoGrupamento(lotacao: string, gp: string): boolean {
+    if (!lotacao || !gp) return false
+    if (lotacao === gp) return true
+    // Extrai as partes sem o GP (a partir do PEL)
+    const semGP = (s: string) => {
+      const partes = s.split('/').map(p => p.trim())
+      const idxPel = partes.findIndex(p => /PEL/i.test(p))
+      return idxPel >= 0 ? partes.slice(idxPel).join(' / ') : s
+    }
+    return semGP(lotacao) === semGP(gp)
+  }
+
   function carregarMilitares(milData: any[], gp: string) {
     const lista = milData
-      .filter((m: any) => m.ativo && m.grupamento === gp)
+      .filter((m: any) => m.ativo && militarPertenceAoGrupamento(m.lotacao, gp))
       .sort((a: any, b: any) => a.nome_guerra.localeCompare(b.nome_guerra))
       .map((m: any) => ({
         login:        m.login,
