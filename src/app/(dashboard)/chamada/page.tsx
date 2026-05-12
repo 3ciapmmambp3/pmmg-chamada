@@ -187,11 +187,11 @@ export default function ChamadaPage() {
               style={{ padding: '6px 8px', fontSize: '12px' }}
             >
               {allGrupamentos.map(g => (
-                <option key={g} value={g}>{labelGrupamento(g)}</option>
+                <option key={g} value={g}>{g}</option>
               ))}
             </select>
           ) : (
-            <p style={{ color: '#f0f0f0', fontWeight: '600', fontSize: '13px' }}>{labelGrupamento(grupamentoSel)}</p>
+            <p style={{ color: '#f0f0f0', fontWeight: '600', fontSize: '13px' }}>{grupamentoSel}</p>
           )}
         </div>
         <div>
