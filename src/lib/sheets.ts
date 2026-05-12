@@ -371,7 +371,8 @@ export async function getDashboardStats() {
   // Grupamentos na ordem da aba LOTACOES (igual ao dropdown)
   let grupamentos: string[] = []
   try {
-    const lotRes = await sheets.spreadsheets.values.get({
+    const sheetsClient = await getSheetsClient()
+    const lotRes = await sheetsClient.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'LOTACOES!A2:A',
     })
