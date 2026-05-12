@@ -368,42 +368,81 @@ export async function getDashboardStats() {
   const ausentes  = chamadas.filter((c) => c.status === 'ausente').length
   const adm       = ativos.filter((m) => m.grupamento === 'ADM').length
 
-  // Pelotões únicos — agrupa por "N PEL / CIA / CIDADE"
-  // Tanto o Cmt Pelotão quanto os Operacionais têm o mesmo pelotao após o parser
-  const pelotoes = [...new Set(ativos.map((m) => m.pelotao))].filter(Boolean).sort()
+  // ── Resumo por Pelotão ──────────────────────────────────────
+  // Agrupa todos os grupamentos pelo NÚMERO DO PELOTÃO pai:
+  //   "1 PEL / ..." → "1º Pelotão"
+  //   "2 PEL / ..." → "2º Pelotão"
+  //   "ADM"         → "ADM"
+  // Assim soma Cmt + Operacionais de todas as cidades do mesmo pelotão.
+  // ─────────────────────────────────────────────────────────────
 
-  // Rótulo legível: "1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES" → "1 PEL · GOV. VALADARES"
-  function labelPelotao(pel: string): string {
-    if (!pel.includes('/')) return pel
-    const partes = pel.split('/').map(p => p.trim())
-    const numPel = partes[0]   // "1 PEL"
-    const cidade = partes[partes.length - 1]  // "GOVERNADOR VALADARES"
-    return `${numPel} · ${cidade}`
+  function numeroPelotao(pelotao: string): string {
+    if (!pelotao) return 'Outros'
+    // ADM sem barra
+    if (!pelotao.includes('/')) return pelotao.toUpperCase()
+    // Extrai o número do PEL: "1 PEL / ..." → "1"
+    const match = pelotao.match(/^(\d+)\s*PEL/i)
+    if (match) return `${match[1]}º Pelotão`
+    return pelotao.split('/')[0].trim()
   }
 
-  const resumoPorPelotao = pelotoes.map((pelotao) => {
-    // Militares ativos cujo pelotao começa com esta chave
-    const mils = ativos.filter((m) => m.pelotao === pelotao)
-    // Chamadas também pelo campo pelotao gravado
-    const pres = chamadas.filter((c) => c.pelotao === pelotao && c.status === 'presente').length
-    const aus  = chamadas.filter((c) => c.pelotao === pelotao && c.status === 'ausente').length
-    return {
-      pelotao: labelPelotao(pelotao),  // rótulo curto para exibição
-      pelotaoFull: pelotao,            // chave completa para referência
-      militares: mils.length,
-      presentes: pres,
-      ausentes:  aus,
-      percentual: mils.length > 0 ? Math.round((pres / mils.length) * 10000) / 100 : 0,
+  // Cria mapa: "1º Pelotão" → { militares, presentes, ausentes }
+  const mapaAgrupado: Record<string, { militares: number; presentes: number; ausentes: number }> = {}
+
+  ativos.forEach((m) => {
+    const chave = numeroPelotao(m.pelotao)
+    if (!mapaAgrupado[chave]) mapaAgrupado[chave] = { militares: 0, presentes: 0, ausentes: 0 }
+    mapaAgrupado[chave].militares++
+  })
+
+  chamadas.forEach((c) => {
+    const chave = numeroPelotao(c.pelotao)
+    if (!mapaAgrupado[chave]) return
+    if (c.status === 'presente') mapaAgrupado[chave].presentes++
+    else mapaAgrupado[chave].ausentes++
+  })
+
+  // Ordena: ADM por último, pelotões em ordem numérica
+  const resumoPorPelotao = Object.entries(mapaAgrupado)
+    .sort(([a], [b]) => {
+      if (a === 'ADM') return 1
+      if (b === 'ADM') return -1
+      const na = parseInt(a) || 0
+      const nb = parseInt(b) || 0
+      return na - nb
+    })
+    .map(([pelotao, dados]) => ({
+      pelotao,
+      militares: dados.militares,
+      presentes: dados.presentes,
+      ausentes:  dados.ausentes,
+      percentual: dados.militares > 0
+        ? Math.round((dados.presentes / dados.militares) * 10000) / 100
+        : 0,
+    }))
+
+  // Responsável por grupamento:
+  // 1ª prioridade: quem lançou a chamada (campo responsavel da aba DADOS)
+  // 2ª prioridade: primeiro militar da lista do grupamento na aba MILITARES
+  const responsaveisLancamento: Record<string, string> = {}
+  chamadas.forEach((c) => {
+    if (c.grupamento && c.responsavel) responsaveisLancamento[c.grupamento] = c.responsavel
+  })
+
+  // Monta mapa: grupamento → primeiro militar (posto + nome_guerra)
+  const primeiroPorGrupamento: Record<string, string> = {}
+  grupamentos.forEach((g) => {
+    const milsDoGrupo = ativos.filter((m) => m.grupamento === g)
+    if (milsDoGrupo.length > 0) {
+      const primeiro = milsDoGrupo[0]
+      primeiroPorGrupamento[g] = `${primeiro.posto} ${primeiro.nome_guerra}`.trim()
     }
   })
 
-  const responsaveis: Record<string, string> = {}
-  chamadas.forEach((c) => { if (c.grupamento && c.responsavel) responsaveis[c.grupamento] = c.responsavel })
-
   const pendenciasPorGrupamento = grupamentos.map((g) => ({
-    grupamento: labelGrupamento(g),   // exibe o rótulo curto no dashboard
+    grupamento: labelGrupamento(g),
     grupamentoFull: g,
-    responsavel: responsaveis[g] || '-',
+    responsavel: responsaveisLancamento[g] || primeiroPorGrupamento[g] || '-',
     status: grupamentosConcluidos.includes(g) ? 'CONCLUÍDO' as const : 'PENDENTE' as const,
   }))
 
