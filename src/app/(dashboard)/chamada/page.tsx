@@ -45,20 +45,21 @@ export default function ChamadaPage() {
 
   async function fetchData() {
     setLoading(true)
-    const [instrRes, milRes] = await Promise.all([
+    const [instrRes, milRes, lotRes] = await Promise.all([
       fetch('/api/config'),
       fetch('/api/militares'),
+      fetch('/api/lotacoes'),
     ])
     const instrData = await instrRes.json()
     const milData: any[] = await milRes.json()
+    const lotData: string[] = await lotRes.json()
 
     setInstrucao(instrData)
     setTodosMilitares(milData)
     setResponsavel(user?.name || '')
 
-    // Grupamentos únicos = lotações completas únicas, ordenadas
-    const gpsSet = new Set(milData.filter(m => m.ativo).map((m: any) => m.grupamento))
-    const gps = Array.from(gpsSet).filter(Boolean).sort() as string[]
+    // Grupamentos vêm da aba LOTACOES (ordem e conteúdo exato da planilha)
+    const gps = Array.isArray(lotData) ? lotData.filter(Boolean) : []
     setAllGrupamentos(gps)
 
     // Usuário operacional vê só o próprio grupamento
