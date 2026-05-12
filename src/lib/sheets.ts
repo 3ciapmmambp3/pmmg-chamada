@@ -447,7 +447,7 @@ export async function getDashboardStats() {
   })
 
   const pendenciasPorGrupamento = grupamentos.map((g) => ({
-    grupamento: labelGrupamento(g),
+    grupamento: g,
     grupamentoFull: g,
     responsavel: responsaveisLancamento[g] || primeiroPorGrupamento[g] || '-',
     status: grupamentosConcluidos.includes(g) ? 'CONCLUÍDO' as const : 'PENDENTE' as const,
