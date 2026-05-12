@@ -16,9 +16,14 @@ interface MilitarForm {
   observacao: string
 }
 
-// Exibe a lotação completa
+// "1 GP / 4 PEL / 3 CIA PM MAMB / TEOFILO OTONI" → "1 GP · TEOFILO OTONI"
 function labelGrupamento(lotacao: string): string {
-  return (lotacao || '').trim()
+  if (!lotacao) return ''
+  if (!lotacao.includes('/')) return lotacao
+  const partes = lotacao.split('/').map(p => p.trim())
+  const gp     = partes[0]
+  const cidade = partes[partes.length - 1]
+  return gp === cidade ? gp : `${gp} · ${cidade}`
 }
 
 export default function ChamadaPage() {
@@ -51,27 +56,10 @@ export default function ChamadaPage() {
     setTodosMilitares(milData)
     setResponsavel(user?.name || '')
 
-    // Grupamentos únicos = lotações completas únicas, ordenadas pela aba LOTACOES
-    const gpsRaw = [...new Set(
-      milData.filter((m: any) => m.ativo).map((m: any) => m.grupamento)
-    )].filter(Boolean) as string[]
-
-    let gps = [...gpsRaw].sort()
-    try {
-      const lotRes = await fetch('/api/lotacoes')
-      if (lotRes.ok) {
-        const ordem: string[] = await lotRes.json()
-        const normalize = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ')
-        const indexMap = new Map(ordem.map((l: string, i: number) => [normalize(l), i]))
-        gps = [...gpsRaw].sort((a, b) => {
-          const ia = indexMap.get(normalize(a)) ?? Infinity
-          const ib = indexMap.get(normalize(b)) ?? Infinity
-          if (ia !== ib) return ia - ib
-          return a.localeCompare(b, 'pt-BR')
-        })
-      }
-    } catch { /* fallback alfabético */ }
-
+    // Grupamentos únicos = lotações completas únicas, ordenadas
+    const gps = [...new Set(
+      milData.filter(m => m.ativo).map((m: any) => m.grupamento)
+    )].filter(Boolean).sort() as string[]
     setAllGrupamentos(gps)
 
     // Usuário operacional vê só o próprio grupamento
@@ -86,6 +74,7 @@ export default function ChamadaPage() {
   function carregarMilitares(milData: any[], gp: string) {
     const lista = milData
       .filter((m: any) => m.ativo && m.grupamento === gp)
+      .sort((a: any, b: any) => a.nome_guerra.localeCompare(b.nome_guerra))
       .map((m: any) => ({
         login:        m.login,
         posto:        m.posto,
@@ -158,7 +147,7 @@ export default function ChamadaPage() {
       </div>
 
       {/* Barra de info */}
-      <div className="military-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'grid', gridTemplateColumns: '140px 1fr 2fr 1fr', gap: '16px' }}>
+      <div className="military-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         <div>
           <p style={{ color: '#9b8a5c', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' }}>Data da Instrução</p>
           <p style={{ color: instrucao?.data ? '#f0f0f0' : '#ef5350', fontWeight: '600', fontSize: '13px' }}>
@@ -178,14 +167,14 @@ export default function ChamadaPage() {
               value={grupamentoSel}
               onChange={e => handleGrupamentoChange(e.target.value)}
               className="military-select"
-              style={{ padding: '6px 8px', fontSize: '11px', width: '100%' }}
+              style={{ padding: '6px 8px', fontSize: '12px' }}
             >
               {allGrupamentos.map(g => (
                 <option key={g} value={g}>{labelGrupamento(g)}</option>
               ))}
             </select>
           ) : (
-            <p style={{ color: '#f0f0f0', fontWeight: '600', fontSize: '11px', lineHeight: '1.4' }}>{labelGrupamento(grupamentoSel)}</p>
+            <p style={{ color: '#f0f0f0', fontWeight: '600', fontSize: '13px' }}>{labelGrupamento(grupamentoSel)}</p>
           )}
         </div>
         <div>
@@ -195,7 +184,13 @@ export default function ChamadaPage() {
         </div>
       </div>
 
-
+      {/* Lotação completa */}
+      {grupamentoSel && (
+        <div style={{ marginBottom: '12px', fontSize: '11px', color: '#666' }}>
+          <span style={{ color: '#555' }}>Lotação: </span>
+          <span style={{ color: '#888' }}>{grupamentoSel}</span>
+        </div>
+      )}
 
       {/* Stats + ações */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -242,7 +237,7 @@ export default function ChamadaPage() {
                 <td style={{ color: '#555', fontSize: '11px' }}>{i + 1}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: '11px', color: '#888' }}>{m.login}</td>
                 <td style={{ fontSize: '11px', color: '#888' }}>{m.posto}</td>
-                <td style={{ fontWeight: '600', color: '#f0f0f0', cursor: 'default' }} title={m.nome}>{m.nome_guerra}</td>
+                <td style={{ fontWeight: '600', color: '#f0f0f0' }}>{m.nome_guerra}</td>
                 <td style={{ fontSize: '11px', color: '#888' }}>{m.pelotao}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '6px' }}>

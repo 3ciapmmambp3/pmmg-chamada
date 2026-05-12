@@ -7,221 +7,128 @@ export function gerarRelatorioPDF(
   instrucao: { data: string; assunto: string },
   grupamento?: string
 ) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF()
+  const goldColor: [number, number, number] = [184, 151, 62]
+  const darkColor: [number, number, number] = [26, 26, 26]
+  const grayColor: [number, number, number] = [100, 100, 100]
 
-  const gold:    [number, number, number] = [155, 130, 70]
-  const black:   [number, number, number] = [20,  20,  20]
-  const gray:    [number, number, number] = [110, 110, 110]
-  const lgray:   [number, number, number] = [245, 245, 245]
-  const white:   [number, number, number] = [255, 255, 255]
-  const green:   [number, number, number] = [0,   130, 0  ]
-  const red:     [number, number, number] = [180, 0,   0  ]
-
-  const PAGE_W  = 210
-  const MARGIN  = 12
-  const COL_W   = PAGE_W - MARGIN * 2   // 186mm usável
-
-  // ── CABEÇALHO ──────────────────────────────────────────────
-  // Linha dourada fina no topo
-  doc.setFillColor(...gold)
-  doc.rect(0, 0, PAGE_W, 1.5, 'F')
-
-  doc.setTextColor(...gold)
-  doc.setFontSize(15)
+  // Header
+  doc.setFillColor(...darkColor)
+  doc.rect(0, 0, 210, 35, 'F')
+  doc.setTextColor(...goldColor)
+  doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text('3ª CIA PM MAmb', PAGE_W / 2, 10, { align: 'center' })
-
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(...gray)
-  doc.text('Polícia Militar de Minas Gerais', PAGE_W / 2, 16, { align: 'center' })
-
+  doc.text('3ª CIA PM MAmb', 105, 12, { align: 'center' })
   doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(200, 200, 200)
+  doc.text('Polícia Militar de Minas Gerais', 105, 19, { align: 'center' })
+  doc.setFontSize(13)
+  doc.setTextColor(...goldColor)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...gold)
-  doc.text('RELATÓRIO DE CHAMADA DE INSTRUÇÃO', PAGE_W / 2, 24, { align: 'center' })
+  doc.text('RELATÓRIO DE CHAMADA DE INSTRUÇÃO', 105, 29, { align: 'center' })
 
-  // Linha dourada separadora
-  doc.setDrawColor(...gold)
-  doc.setLineWidth(0.4)
-  doc.line(MARGIN, 27, PAGE_W - MARGIN, 27)
-
-  // ── BOX DE INFORMAÇÕES ─────────────────────────────────────
-  const boxY = 30
-  const boxH = 18
-  doc.setFillColor(...lgray)
-  doc.setDrawColor(...gold)
-  doc.setLineWidth(0.4)
-  doc.roundedRect(MARGIN, boxY, COL_W, boxH, 1.5, 1.5, 'FD')
-
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...black)
-
-  const col1X = MARGIN + 4
-  const col2X = MARGIN + COL_W / 2 + 2
-  const row1Y = boxY + 6
-  const row2Y = boxY + 13
-
-  doc.text(`Data: ${instrucao.data}`, col1X, row1Y)
-  doc.text(`Assunto: ${instrucao.assunto}`, col1X, row2Y)
-
-  const responsavel = chamadas[0]?.responsavel || '-'
-  // Grupamento — texto longo: quebra se necessário dentro da coluna disponível
-  const maxGrupW = (COL_W / 2) - 6  // largura disponível lado direito em mm
-  if (grupamento) {
-    const gpLines = doc.splitTextToSize(`Grupamento: ${grupamento}`, maxGrupW)
-    doc.text(gpLines, col2X, row1Y)
-  }
-  doc.text(`Responsável: ${responsavel}`, col2X, row2Y)
-
-  // ── ESTATÍSTICAS ───────────────────────────────────────────
-  const presentes = chamadas.filter(c => c.status === 'presente')
-  const ausentes  = chamadas.filter(c => c.status === 'ausente')
-
-  const statsY  = boxY + boxH + 5
-  const statW   = (COL_W - 8) / 3
-  const statH   = 10
-  const labels  = [`TOTAL: ${chamadas.length}`, `PRESENTES: ${presentes.length}`, `AUSENTES: ${ausentes.length}`]
-  const statColors: [number,number,number][] = [gold, [60,120,60], [160,50,50]]
-
-  labels.forEach((lbl, i) => {
-    const sx = MARGIN + i * (statW + 4)
-    doc.setFillColor(...statColors[i])
-    doc.roundedRect(sx, statsY, statW, statH, 1.5, 1.5, 'F')
-    doc.setTextColor(...white)
-    doc.setFontSize(8.5)
-    doc.setFont('helvetica', 'bold')
-    doc.text(lbl, sx + statW / 2, statsY + 6.5, { align: 'center' })
-  })
-
-  // ── TABELA PRESENTES ───────────────────────────────────────
-  let cursorY = statsY + statH + 6
-
+  // Info box
+  doc.setFillColor(240, 240, 240)
+  doc.rect(10, 40, 190, 22, 'F')
+  doc.setDrawColor(...goldColor)
+  doc.setLineWidth(0.5)
+  doc.rect(10, 40, 190, 22)
+  doc.setTextColor(...darkColor)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...black)
-  doc.text('MILITARES PRESENTES', MARGIN, cursorY + 1)
-  doc.setDrawColor(...gold)
-  doc.setLineWidth(0.6)
-  doc.line(MARGIN, cursorY + 3, MARGIN + 55, cursorY + 3)
+  doc.text(`Data: ${instrucao.data}`, 15, 48)
+  doc.text(`Assunto: ${instrucao.assunto}`, 15, 56)
+  if (grupamento) {
+    doc.text(`Grupamento: ${grupamento}`, 130, 48)
+  }
+
+  const responsavel = chamadas[0]?.responsavel || '-'
+  doc.text(`Responsável: ${responsavel}`, 130, 56)
+
+  // Stats
+  const presentes = chamadas.filter((c) => c.status === 'presente')
+  const ausentes = chamadas.filter((c) => c.status === 'ausente')
+
+  doc.setFillColor(...goldColor)
+  doc.rect(10, 68, 58, 14, 'F')
+  doc.setFillColor(60, 60, 60)
+  doc.rect(76, 68, 58, 14, 'F')
+  doc.setFillColor(80, 80, 80)
+  doc.rect(142, 68, 58, 14, 'F')
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`TOTAL: ${chamadas.length}`, 39, 77, { align: 'center' })
+  doc.text(`PRESENTES: ${presentes.length}`, 105, 77, { align: 'center' })
+  doc.text(`AUSENTES: ${ausentes.length}`, 171, 77, { align: 'center' })
+
+  // Table presentes
+  doc.setTextColor(...darkColor)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text('MILITARES PRESENTES', 10, 92)
+  doc.setDrawColor(...goldColor)
+  doc.setLineWidth(0.8)
+  doc.line(10, 94, 80, 94)
 
   autoTable(doc, {
-    startY: cursorY + 6,
-    margin: { left: MARGIN, right: MARGIN },
-    head: [['#', 'Nº PM', 'Posto', 'Nome de Guerra', 'Grupamento', 'Status']],
+    startY: 97,
+    head: [['#', 'Posto', 'Nome de Guerra', 'Grupamento', 'Status']],
     body: presentes.map((c, i) => [
       i + 1,
-      c.militar || '-',
-      c.posto   || '-',
+      c.posto || '-',
       c.nome_guerra || c.militar,
       c.grupamento,
       'PRESENTE',
     ]),
-    styles: {
-      fontSize: 8,
-      cellPadding: 2.5,
-      overflow: 'linebreak',
-      textColor: black,
-      lineColor: [220, 220, 220],
-      lineWidth: 0.2,
-    },
-    headStyles: {
-      fillColor: [230, 220, 195],
-      textColor: black,
-      fontStyle: 'bold',
-      fontSize: 8,
-    },
-    alternateRowStyles: { fillColor: lgray },
-    bodyStyles: { fillColor: white },
-    columnStyles: {
-      0: { cellWidth: 8,  halign: 'center' },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 26 },
-      3: { cellWidth: 32 },
-      4: { cellWidth: 'auto' },
-      5: { cellWidth: 22, halign: 'center', textColor: green, fontStyle: 'bold' },
-    },
-    didDrawPage: (data) => {
-      // Linha dourada fina no topo de cada página de continuação
-      doc.setFillColor(...gold)
-      doc.rect(0, 0, PAGE_W, 1.5, 'F')
-    },
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: darkColor, textColor: goldColor, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    columnStyles: { 4: { textColor: [0, 120, 0], fontStyle: 'bold' } },
   })
 
-  // ── TABELA AUSENTES ────────────────────────────────────────
-  if (ausentes.length > 0) {
-    cursorY = (doc as any).lastAutoTable.finalY + 7
+  // Table ausentes
+  const finalY = (doc as any).lastAutoTable.finalY + 10
+  doc.setTextColor(...darkColor)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text('MILITARES AUSENTES', 10, finalY)
+  doc.setDrawColor(...goldColor)
+  doc.line(10, finalY + 2, 80, finalY + 2)
 
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...black)
-    doc.text('MILITARES AUSENTES', MARGIN, cursorY + 1)
-    doc.setDrawColor(...gold)
-    doc.setLineWidth(0.6)
-    doc.line(MARGIN, cursorY + 3, MARGIN + 55, cursorY + 3)
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [['#', 'Posto', 'Nome de Guerra', 'Grupamento', 'Status', 'Justificativa']],
+    body: ausentes.map((c, i) => [
+      i + 1,
+      c.posto || '-',
+      c.nome_guerra || c.militar,
+      c.grupamento,
+      'AUSENTE',
+      c.justificativa || '-',
+    ]),
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: darkColor, textColor: goldColor, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    columnStyles: { 4: { textColor: [180, 0, 0], fontStyle: 'bold' } },
+  })
 
-    autoTable(doc, {
-      startY: cursorY + 6,
-      margin: { left: MARGIN, right: MARGIN },
-      head: [['#', 'Nº PM', 'Posto', 'Nome de Guerra', 'Grupamento', 'Status', 'Justificativa']],
-      body: ausentes.map((c, i) => [
-        i + 1,
-        c.militar || '-',
-        c.posto   || '-',
-        c.nome_guerra || c.militar,
-        c.grupamento,
-        'AUSENTE',
-        c.justificativa || '-',
-      ]),
-      styles: {
-        fontSize: 8,
-        cellPadding: 2.5,
-        overflow: 'linebreak',
-        textColor: black,
-        lineColor: [220, 220, 220],
-        lineWidth: 0.2,
-      },
-      headStyles: {
-        fillColor: [230, 220, 195],
-        textColor: black,
-        fontStyle: 'bold',
-        fontSize: 8,
-      },
-      alternateRowStyles: { fillColor: lgray },
-      bodyStyles: { fillColor: white },
-      columnStyles: {
-        0: { cellWidth: 8,  halign: 'center' },
-        1: { cellWidth: 24 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 'auto' },
-        5: { cellWidth: 20, halign: 'center', textColor: red, fontStyle: 'bold' },
-        6: { cellWidth: 28 },
-      },
-      didDrawPage: () => {
-        doc.setFillColor(...gold)
-        doc.rect(0, 0, PAGE_W, 1.5, 'F')
-      },
-    })
-  }
-
-  // ── RODAPÉ ─────────────────────────────────────────────────
+  // Footer
   const pageCount = doc.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
-    // Linha dourada no rodapé
-    doc.setDrawColor(...gold)
-    doc.setLineWidth(0.3)
-    doc.line(MARGIN, 287, PAGE_W - MARGIN, 287)
-    doc.setFontSize(7.5)
-    doc.setTextColor(...gray)
+    doc.setFontSize(8)
+    doc.setTextColor(...grayColor)
     doc.text(
-      `© ${new Date().getFullYear()} 3ª Cia PM MAmb — Polícia Militar de Minas Gerais  |  Página ${i} de ${pageCount}`,
-      PAGE_W / 2, 291, { align: 'center' }
+      `© ${new Date().getFullYear()} 3ª Cia PM MAmb - Polícia Militar de Minas Gerais | Página ${i} de ${pageCount}`,
+      105,
+      290,
+      { align: 'center' }
     )
   }
 
-  const filename = `chamada_${instrucao.data.replace(/\//g, '-')}_${grupamento ? grupamento.replace(/\s*\/\s*/g, '-') : 'geral'}.pdf`
+  const filename = `chamada_${instrucao.data.replace(/\//g, '-')}_${grupamento || 'geral'}.pdf`
   doc.save(filename)
 }

@@ -40,24 +40,18 @@ export default function DashboardPage() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-            <p className="text-gray-400 mt-1">Visão geral das instruções e presença dos militares.</p>
-          </div>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-400 mt-1">Visão geral das instruções e presença dos militares.</p>
         </div>
-        {instrucao?.assunto && (
-          <div style={{ marginTop: "24px", textAlign: "center", borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a", padding: "20px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", flexWrap: "wrap" }}>
-              <Calendar size={20} className="text-[#B8973E]" style={{ flexShrink: 0 }} />
-              <span style={{ color: "#9b8a5c", fontSize: "14px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", flexShrink: 0 }}>
-                {instrucao.data}
-              </span>
-              <span style={{ color: "#444", fontSize: "18px" }}>|</span>
-              <span style={{ color: "#f0f0f0", fontSize: "22px", fontWeight: "700", letterSpacing: "0.3px" }}>
-                {instrucao.assunto}
-              </span>
+        {instrucao && (
+          <div className="bg-[#242424] border border-[#333] rounded-lg px-5 py-3 flex items-start gap-3 min-w-[220px]">
+            <Calendar size={20} className="text-[#B8973E] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-[#B8973E] text-xs font-bold uppercase tracking-wider mb-1">Instrução Atual</p>
+              <p className="text-white font-semibold text-sm">{instrucao.data}</p>
+              <p className="text-gray-300 text-sm">{instrucao.assunto}</p>
             </div>
           </div>
         )}
@@ -158,7 +152,7 @@ export default function DashboardPage() {
             <tbody>
               {(stats?.pendenciasPorGrupamento || []).map((g: any) => (
                 <tr key={g.grupamento}>
-                  <td className="font-semibold text-white" style={{ fontSize: "11px" }}>{g.grupamento}</td>
+                  <td className="font-semibold text-white">{g.grupamento}</td>
                   <td>{g.responsavel}</td>
                   <td>
                     <span className={g.status === 'PENDENTE' ? 'badge-pendente' : 'badge-concluido'}>

@@ -8,10 +8,10 @@
 // → grupamento = "1 GP", pelotao = "1 PEL"
 //
 // Aba DADOS — colunas:
-// A: data | B: assunto | C: grupamento | D: Nº PM (militar)
-// E: posto | F: nome_guerra | G: pelotao | H: status | I: justificativa | J: responsavel | K: observacao
+// A: data | B: assunto | C: grupamento | D: pelotao | E: nome_pm
+// F: posto | G: nome_guerra | H: status | I: justificativa | J: responsavel | K: observacao
 //
-// Aba CONFIG — A: assunto | B: data (linha 1 = cabeçalho; linhas 2+ = histórico; última = ativa)
+// Aba CONFIG — A: data | B: assunto
 // =====================================================
 
 export interface Militar {

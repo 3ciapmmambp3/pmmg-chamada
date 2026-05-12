@@ -34,9 +34,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
-  const adminOnly = ['/militares', '/configuracoes', '/consultas', '/relatorios']
   const menuItems = navItems.filter(item => {
-    if (adminOnly.includes(item.href)) return user?.perfil === 'admin'
+    if (item.href === '/militares' || item.href === '/configuracoes') return user?.perfil === 'admin'
     return true
   })
 
