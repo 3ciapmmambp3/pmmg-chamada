@@ -67,7 +67,7 @@ export default function MilitaresPage() {
     const res = await fetch('/api/militares', {
       method: editLogin ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editLogin ? { login: editLogin, ...form } : form),
+      body: JSON.stringify(editLogin ? { ...form, login: editLogin } : form),
     })
     setSaving(false)
     if (res.ok) {
