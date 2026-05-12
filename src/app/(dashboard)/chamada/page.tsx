@@ -107,7 +107,7 @@ export default function ChamadaPage() {
 
     const lista = milData
       .filter((m: any) => m.ativo && militarPertenceAoGrupamento(m.lotacao, gp))
-      .sort((a: any, b: any) => a.nome_guerra.localeCompare(b.nome_guerra))
+      // Mantém a ordem original da aba MILITARES (sem ordenar)
       .map((m: any) => {
         const jaLancado = existentes[m.login]
         return {
@@ -274,7 +274,7 @@ export default function ChamadaPage() {
                 <td style={{ color: '#555', fontSize: '11px' }}>{i + 1}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: '11px', color: '#888' }}>{m.login}</td>
                 <td style={{ fontSize: '11px', color: '#888' }}>{m.posto}</td>
-                <td style={{ fontWeight: '600', color: '#f0f0f0' }}>
+                <td style={{ fontWeight: '600', color: '#f0f0f0' }} title={m.nome}>
                   {m.nome_guerra}
                   {m.jaLancado && (
                     <span style={{
