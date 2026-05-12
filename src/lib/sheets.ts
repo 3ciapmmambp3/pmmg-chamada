@@ -22,17 +22,24 @@ function parseLotacao(lotacao: string): { grupamento: string; pelotao: string } 
   if (!lotacao) return { grupamento: '', pelotao: '' }
   const lotacaoTrim = lotacao.trim()
 
+  // ADM sem barra
   if (!lotacaoTrim.includes('/')) {
-    // ADM ou qualquer valor sem barra = grupamento próprio
-    return { grupamento: lotacaoTrim, pelotao: lotacaoTrim }
+    return { grupamento: lotacaoTrim, pelotao: 'ADM' }
   }
 
   const partes = lotacaoTrim.split('/').map((p) => p.trim())
-  // grupamento = lotação COMPLETA (evita misturar cidades diferentes)
-  // pelotao    = segunda parte "X PEL"
+
+  // Estrutura da 3ª CIA PM MAMB:
+  // ADM
+  // X PEL / 3 CIA PM MAMB / CIDADE          → pelotao = "X PEL"
+  // X GP / X PEL / 3 CIA PM MAMB / CIDADE   → pelotao = "X PEL"
+
+  // Busca a parte que contém "PEL"
+  const pelParte = partes.find((p) => /PEL/i.test(p))
+
   return {
-    grupamento: lotacaoTrim,          // ex: "1 GP / 4 PEL / 3 CIA PM MAMB / TEOFILO OTONI"
-    pelotao: partes[1] || partes[0],  // ex: "4 PEL"
+    grupamento: lotacaoTrim,   // lotação completa
+    pelotao: pelParte || 'ADM',
   }
 }
 
@@ -339,9 +346,12 @@ export async function getDashboardStats() {
   const ausentes  = chamadas.filter((c) => c.status === 'ausente').length
   const adm       = ativos.filter((m) => m.grupamento === 'ADM').length
 
-  // Pelotões ordenados pela posição de sua primeira ocorrência na lista canônica
-  const pelotoesRaw = [...new Set(ativos.map((m) => m.pelotao))].filter(Boolean)
-  const pelotoes = sortByLotacao(pelotoesRaw, lotacoesOrdem)
+  // Pelotões: apenas entradas com "PEL" + ADM separado, ordenados canonicamente
+  const pelotoesRaw = [...new Set(ativos.map((m) => m.pelotao))]
+    .filter((p) => p && (p === 'ADM' || /PEL/i.test(p)))
+  // Ordem fixa: ADM primeiro, depois 1 PEL .. 5 PEL
+  const pelotoes = ['ADM', '1 PEL', '2 PEL', '3 PEL', '4 PEL', '5 PEL']
+    .filter((p) => pelotoesRaw.includes(p))
   const resumoPorPelotao = pelotoes.map((pelotao) => {
     const mils = ativos.filter((m) => m.pelotao === pelotao)
     const pres = chamadas.filter((c) => c.pelotao === pelotao && c.status === 'presente').length
