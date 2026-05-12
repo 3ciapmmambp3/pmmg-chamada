@@ -206,7 +206,7 @@ export async function getTodasInstrucoes(): Promise<InstrucaoHistorico[]> {
     range: 'CONFIG!A2:C',
   })
   const rows = res.data.values || []
-  return rows
+  const lista = rows
     .map((row, idx) => ({
       assunto:  (row[0] || '').toString().trim(),
       data:     (row[1] || '').toString().trim(),
@@ -214,6 +214,13 @@ export async function getTodasInstrucoes(): Promise<InstrucaoHistorico[]> {
       rowIndex: idx + 2,
     }))
     .filter(r => r.assunto || r.data)
+
+  // Se nenhuma está marcada como ativa, marca a última automaticamente
+  if (lista.length > 0 && !lista.some(r => r.ativa)) {
+    lista[lista.length - 1].ativa = true
+  }
+
+  return lista
 }
 
 export async function getInstrucaoConfig(): Promise<InstrucaoConfig> {
