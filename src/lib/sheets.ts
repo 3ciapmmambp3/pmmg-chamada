@@ -46,7 +46,7 @@ export function labelGrupamento(lotacao: string): string {
 // A: Nº PM | B: P/G | C: NOME COMPLETO | D: NOME DE GUERRA
 // E: FUNÇÃO | F: LOTAÇÃO | G: PERFIL | H: SENHA | I: TROCAR_SENHA | J: ATIVO
 // ============================================================
-const MILITARES_START_ROW = parseInt(process.env.MILITARES_START_ROW || '8', 10)
+const MILITARES_START_ROW = parseInt(process.env.MILITARES_START_ROW || '3', 10)
 
 export async function getMilitares(): Promise<Militar[]> {
   const sheets = await getSheetsClient()
@@ -76,7 +76,7 @@ export async function getMilitares(): Promise<Militar[]> {
         rowIndex: idx + MILITARES_START_ROW,
       } as Militar
     })
-    .filter((m) => m.login !== '')
+    .filter((m) => m.login !== '' && /^[0-9]/.test(m.login))
 }
 
 // Remove formatação do Nº PM para comparação
@@ -300,7 +300,7 @@ export async function getLotacoesOrdem(): Promise<string[]> {
     })
     return (res.data.values || [])
       .map((r) => (r[0] || '').toString().trim())
-      .filter(Boolean)
+      .filter(v => v && !v.toLowerCase().includes('lotac') && !v.toLowerCase().includes('não altere'))
   } catch {
     return []
   }
