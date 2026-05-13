@@ -33,7 +33,7 @@ export default function RelatoriosPage() {
 
   async function handleGerarPDF() {
     const { gerarRelatorioPDF } = await import('@/lib/pdf')
-    gerarRelatorioPDF(chamadas, instrucao || { data, assunto: '' }, grupamento || undefined)
+    gerarRelatorioPDF(chamadas, instrucao || { data, assunto: '', responsavel_instrucao: '' }, grupamento || undefined)
   }
 
   const presentes = chamadas.filter(c => c.status === 'presente')
@@ -82,10 +82,17 @@ export default function RelatoriosPage() {
       {/* Preview */}
       {fetched && (
         <div className="military-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <span style={{ color: '#9b8a5c', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              Pré-visualização — {chamadas.length} registro(s)
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <span style={{ color: '#9b8a5c', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Pré-visualização — {chamadas.length} registro(s)
+              </span>
+              {instrucao?.responsavel_instrucao && (
+                <div style={{ color: '#888', fontSize: '11px', marginTop: '3px' }}>
+                  Responsável pela instrução: <strong style={{ color: '#9b8a5c' }}>{instrucao.responsavel_instrucao}</strong>
+                </div>
+              )}
+            </div>
             <button onClick={handleGerarPDF} disabled={!chamadas.length} className="btn-gold"
               style={{ opacity: !chamadas.length ? 0.5 : 1 }}>
               <Download size={14}/> Gerar PDF

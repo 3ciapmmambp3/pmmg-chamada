@@ -1,33 +1,24 @@
-// =====================================================
-// ESTRUTURA REAL DA PLANILHA
-// Aba MILITARES — colunas:
-// A: Nº PM | B: P/G | C: NOME COMPLETO | D: NOME DE GUERRA
-// E: FUNÇÃO | F: LOTAÇÃO | G: PERFIL | H: SENHA | I: TROCAR_SENHA | J: ATIVO
-//
-// LOTAÇÃO formato: "1 GP / 1 PEL / 3 CIA PM MAMB / GOVERNADOR VALADARES"
-// → grupamento = "1 GP", pelotao = "1 PEL"
-//
-// Aba DADOS — colunas:
-// A: data | B: assunto | C: grupamento | D: pelotao | E: nome_pm
-// F: posto | G: nome_guerra | H: status | I: justificativa | J: responsavel | K: observacao
-//
-// Aba CONFIG — A: data | B: assunto
-// =====================================================
+// Aba CONFIG — A: ASSUNTO | B: DATA | C: ATIVA | D: RESPONSAVEL_INSTRUCAO
+export interface InstrucaoConfig {
+  data: string
+  assunto: string
+  responsavel_instrucao: string
+}
 
 export interface Militar {
-  login: string         // Nº PM  (coluna A)
-  posto: string         // P/G    (coluna B)
-  nome: string          // NOME COMPLETO (coluna C)
-  nome_guerra: string   // NOME DE GUERRA (coluna D)
-  funcao: string        // FUNÇÃO (coluna E)
-  lotacao: string       // LOTAÇÃO completa (coluna F)
-  grupamento: string    // extraído da LOTAÇÃO (parte antes do primeiro /)
-  pelotao: string       // extraído da LOTAÇÃO (segunda parte)
+  login: string
+  posto: string
+  nome: string
+  nome_guerra: string
+  funcao: string
+  lotacao: string
+  grupamento: string
+  pelotao: string
   perfil: 'admin' | 'operacional'
-  senha: string         // coluna H
-  trocar_senha: boolean // coluna I — TRUE = obriga troca no login
-  ativo: boolean        // coluna J
-  rowIndex?: number     // linha real na planilha (uso interno)
+  senha: string
+  trocar_senha: boolean
+  ativo: boolean
+  rowIndex?: number
 }
 
 export interface Chamada {
@@ -44,11 +35,6 @@ export interface Chamada {
   observacao: string
 }
 
-export interface InstrucaoConfig {
-  data: string
-  assunto: string
-}
-
 export interface PelotaoStats {
   pelotao: string
   militares: number
@@ -61,4 +47,12 @@ export interface GrupamentoStatus {
   grupamento: string
   responsavel: string
   status: 'PENDENTE' | 'CONCLUÍDO'
+}
+
+export interface InstrucaoHistorico {
+  assunto: string
+  data: string
+  responsavel_instrucao: string
+  ativa: boolean
+  rowIndex: number
 }

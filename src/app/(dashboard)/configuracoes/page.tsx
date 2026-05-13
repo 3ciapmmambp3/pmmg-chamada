@@ -15,8 +15,9 @@ export default function ConfiguracoesPage() {
   const user = session?.user as any
 
   const [historico, setHistorico]   = useState<InstrucaoHist[]>([])
-  const [novaData, setNovaData]     = useState('')
-  const [novoAssunto, setNovoAssunto] = useState('')
+  const [novaData, setNovaData]         = useState('')
+  const [novoAssunto, setNovoAssunto]   = useState('')
+  const [novoResponsavel, setNovoResponsavel] = useState('')
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(false)
   const [ativando, setAtivando]     = useState<number | null>(null)
@@ -48,11 +49,12 @@ export default function ConfiguracoesPage() {
     await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: novaData, assunto: novoAssunto.trim() }),
+      body: JSON.stringify({ data: novaData, assunto: novoAssunto.trim(), responsavel_instrucao: novoResponsavel.trim() }),
     })
     setSaving(false)
     setNovaData('')
     setNovoAssunto('')
+    setNovoResponsavel('')
     await fetchHistorico()
     showMsg('Instrução adicionada e ativada!')
   }
@@ -120,6 +122,11 @@ export default function ConfiguracoesPage() {
             ? <div style={{ color: '#f0f0f0', fontSize: '13px' }}>
                 <strong>{ativa.assunto}</strong>
                 <span style={{ color: '#888', marginLeft: '12px' }}>{formatarData(ativa.data)}</span>
+                {ativa.responsavel_instrucao && (
+                  <span style={{ color: '#9b8a5c', marginLeft: '12px', fontSize: '12px' }}>
+                    — Resp: {ativa.responsavel_instrucao}
+                  </span>
+                )}
               </div>
             : <div style={{ color: '#888', fontSize: '12px' }}>Adicione uma instrução abaixo e ela será ativada automaticamente.</div>
           }
@@ -158,6 +165,17 @@ export default function ConfiguracoesPage() {
                 placeholder="Ex: Uso Progressivo da Força"
                 value={novoAssunto}
                 onChange={e => setNovoAssunto(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#999', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>
+                Responsável pela Instrução
+              </label>
+              <input
+                className="military-input"
+                placeholder="Ex: Cap PM Fulano"
+                value={novoResponsavel}
+                onChange={e => setNovoResponsavel(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdicionar()}
               />
             </div>
@@ -222,6 +240,9 @@ export default function ConfiguracoesPage() {
                     </div>
                     <div style={{ color: '#666', fontSize: '10px', marginTop: '2px' }}>
                       {formatarData(h.data)}
+                      {h.responsavel_instrucao && (
+                        <span style={{ marginLeft: '8px', color: '#555' }}>· {h.responsavel_instrucao}</span>
+                      )}
                     </div>
                   </div>
                   {h.ativa ? (

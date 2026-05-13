@@ -201,21 +201,22 @@ export interface InstrucaoHistorico {
 
 export async function getTodasInstrucoes(): Promise<InstrucaoHistorico[]> {
   const sheets = await getSheetsClient()
+  // Coluna D = RESPONSAVEL_INSTRUCAO
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'CONFIG!A2:C',
+    range: 'CONFIG!A2:D',
   })
   const rows = res.data.values || []
   const lista = rows
     .map((row, idx) => ({
-      assunto:  (row[0] || '').toString().trim(),
-      data:     (row[1] || '').toString().trim(),
-      ativa:    row[2] === 'SIM' || row[2] === 'sim' || row[2] === 'TRUE',
-      rowIndex: idx + 2,
+      assunto:               (row[0] || '').toString().trim(),
+      data:                  (row[1] || '').toString().trim(),
+      ativa:                 row[2] === 'SIM' || row[2] === 'sim' || row[2] === 'TRUE',
+      responsavel_instrucao: (row[3] || '').toString().trim(),
+      rowIndex:              idx + 2,
     }))
     .filter(r => r.assunto || r.data)
 
-  // Se nenhuma está marcada como ativa, marca a última automaticamente
   if (lista.length > 0 && !lista.some(r => r.ativa)) {
     lista[lista.length - 1].ativa = true
   }
@@ -225,10 +226,13 @@ export async function getTodasInstrucoes(): Promise<InstrucaoHistorico[]> {
 
 export async function getInstrucaoConfig(): Promise<InstrucaoConfig> {
   const todas = await getTodasInstrucoes()
-  if (!todas.length) return { data: '', assunto: '' }
-  // Prioridade: marcada como ATIVA; fallback: última linha
+  if (!todas.length) return { data: '', assunto: '', responsavel_instrucao: '' }
   const ativa = todas.find(r => r.ativa) || todas[todas.length - 1]
-  return { data: ativa.data, assunto: ativa.assunto }
+  return {
+    data:                  ativa.data,
+    assunto:               ativa.assunto,
+    responsavel_instrucao: ativa.responsavel_instrucao || '',
+  }
 }
 
 // Adiciona nova instrução e a marca como ativa (desmarca as outras)
@@ -256,20 +260,20 @@ export async function setInstrucaoConfig(config: InstrucaoConfig): Promise<void>
   )
 
   if (existente) {
-    // Apenas marca como ativa
+    // Marca como ativa e atualiza responsavel se informado
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `CONFIG!C${existente.rowIndex}`,
+      range: `CONFIG!C${existente.rowIndex}:D${existente.rowIndex}`,
       valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [['SIM']] },
+      requestBody: { values: [['SIM', config.responsavel_instrucao || existente.responsavel_instrucao || '']] },
     })
   } else {
     // Adiciona nova linha e marca como ativa
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'CONFIG!A:C',
+      range: 'CONFIG!A:D',
       valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [[config.assunto, config.data, 'SIM']] },
+      requestBody: { values: [[config.assunto, config.data, 'SIM', config.responsavel_instrucao || '']] },
     })
   }
 }
