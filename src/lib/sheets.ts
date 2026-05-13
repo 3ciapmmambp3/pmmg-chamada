@@ -196,6 +196,7 @@ export interface InstrucaoHistorico {
   assunto: string
   data: string
   ativa: boolean
+  responsavel_instrucao: string
   rowIndex: number
 }
 
