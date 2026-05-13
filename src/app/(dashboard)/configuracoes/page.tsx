@@ -8,6 +8,7 @@ interface InstrucaoHist {
   data: string
   ativa: boolean
   rowIndex: number
+  responsavel_instrucao: string
 }
 
 export default function ConfiguracoesPage() {
