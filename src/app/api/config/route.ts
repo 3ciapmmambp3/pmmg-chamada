@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (body.ativar !== undefined) {
       await ativarInstrucao(Number(body.ativar))
     } else {
-      await setInstrucaoConfig({ assunto: body.assunto, data: body.data })
+      await setInstrucaoConfig({ assunto: body.assunto, data: body.data, responsavel_instrucao: body.responsavel_instrucao || '' })
     }
     return NextResponse.json({ success: true })
   } catch (e: any) {
